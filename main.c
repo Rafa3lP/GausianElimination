@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 void printFloatMat(float *mat[], int rows, int cols);
 
@@ -48,6 +49,13 @@ int main(int argc, char *argv[]) {
     printf("\n");
     printFloatMat(&b, 1, n);
 
+    gausianElimination(n, A, b, x);
+
+    printf("-----------------------------\n");
+   /* printFloatMat(A, n, n);
+    printf("\n");
+    printFloatMat(&b, 1, n);*/
+
     freeSystem(A, b, x);
 
     return EXIT_SUCCESS;
@@ -78,6 +86,64 @@ void freeSystem(float *A[], float *b, float *x) {
     free(x);
 }
 
-void gausianElimination(int n, float *A[], float *b, float *x) {
+void swapRows(float *A[], float *b, int row1, int row2) {
+    float *temp = A[row1];
+    A[row1] = A[row2];
+    A[row2] = temp;
 
+    float temp2 = b[row1];
+    b[row1] = b[row2];
+    b[row2] = temp2;
+}
+
+void gausianElimination(int n, float *A[], float *b, float *x) {
+    
+    for(int k = 0; k < n - 1; k++) {
+        // pivoteamento das linhas
+        int idx = k;
+        for(int i = k+1; i < n; i++) {
+            if(fabs(A[i][k]) > fabs(A[k][k])) {
+                idx = i;
+            }
+        }
+        printf("Trocar linha %d por linha %d\n", k+1, idx + 1);
+        swapRows(A, b, k, idx);
+        printFloatMat(A, n, n);
+        printf("\n");
+        printFloatMat(&b, 1, n);
+        printf("\n");
+
+        // zerar elementos abaixo da diagonal principal
+        for(int i = k + 1; i < n; i++) {
+            // Calcular o multiplicador m
+            float m = A[i][k] / A[k][k];
+            printf("m = %.1f\n", m);
+
+            // aplicar o multiplicador m na linha i
+            for(int j = k; j < n; j++) {
+                A[i][j] -= m * A[k][j];
+            }
+
+            // Calcular b
+            b[i] -= m * b[k];
+        }
+    }
+
+    // substituição regressiva
+    for(int i = n - 1; i >= 0; i--) {
+        float sum = 0;
+        for(int j = i + 1; j < n; j++) {
+            sum += A[i][j] * x[j];
+        }
+        x[i] = (b[i] - sum) / A[i][i];
+    }
+
+    printf("\n");
+    printFloatMat(A, n, n);
+    printf("\n");
+    printFloatMat(&b, 1, n);
+
+    printf("\n");
+    for(int i = 0; i < n; i++)
+        printf("x[%d] = %.1f\n", i+1, x[i]);
 }
