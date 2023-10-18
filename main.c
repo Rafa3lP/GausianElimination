@@ -2,17 +2,29 @@
 #include <stdlib.h>
 #include <math.h>
 
-void printFloatMat(float *mat[], int rows, int cols);
+typedef struct {
+    int n;
+    float **A;
+    float *b;
+    float *x;
+} linearSystem;
 
-void allocateSystem(int n, float **A[], float **b, float **x);
+void allocateSystem(linearSystem *s);
 
-void freeSystem(float *A[], float *b, float *x);
+void freeSystem(linearSystem *s);
 
-void gausianElimination(int n, float *A[], float *b, float *x);
+void gausianElimination(linearSystem *s);
+
+void swapRows(linearSystem *s, int row1, int row2);
+
+void readSystem(linearSystem *s, FILE *file);
+
+void printSolution(linearSystem *s);
+
+void printSystem(linearSystem *s);
 
 int main(int argc, char *argv[]) {
-    int n;
-    float **A, *b, *x;
+    linearSystem s;
 
     if(argc != 2) {
         printf("Usage: %s <file>\n", argv[0]);
@@ -26,124 +38,136 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    fscanf(file, "%d", &n);
-
-    printf("Dimension: %d X %d\n\n", n, n);
-
-    allocateSystem(n, &A, &b, &x);
-
-    // Ler matriz A
-    for(int i = 0; i < n; i++) {
-        for(int j = 0; j < n; j++) {
-            fscanf(file, "%f", &A[i][j]);
-        }
-    }
-
-    // Ler vetor b
-    for(int i = 0; i < n; i++)
-        fscanf(file, "%f", &b[i]);
+    readSystem(&s, file);
 
     fclose(file);
 
-    printFloatMat(A, n, n);
-    printf("\n");
-    printFloatMat(&b, 1, n);
+    gausianElimination(&s);
 
-    gausianElimination(n, A, b, x);
+    printSolution(&s);
 
-    printf("-----------------------------\n");
-   /* printFloatMat(A, n, n);
-    printf("\n");
-    printFloatMat(&b, 1, n);*/
-
-    freeSystem(A, b, x);
+    freeSystem(&s);
 
     return EXIT_SUCCESS;
 }
 
-void printFloatMat(float *mat[], int rows, int cols) {
-    for(int i = 0; i < rows; i++) {
-        for(int j = 0; j < cols; j++)
-            printf("%.1f ", mat[i][j]);
-        printf("\n");
+void readSystem(linearSystem *s, FILE *file) {
+    fscanf(file, "%d", &s->n);
+
+    allocateSystem(s);
+
+    // Ler matriz A
+    for(int i = 0; i < s->n; i++) {
+        for(int j = 0; j < s->n; j++) {
+            fscanf(file, "%f", &s->A[i][j]);
+        }
+    }
+
+    // Ler vetor b
+    for(int i = 0; i < s->n; i++)
+        fscanf(file, "%f", &s->b[i]);
+}
+
+void printSolution(linearSystem *s) {
+    printf("\n-------------SOLUTION----------------\n");
+    for(int i = 0; i < s->n; i++)
+        printf("x[%d] = %.1f\n", i+1, s->x[i]);
+    printf("-------------------------------------\n");
+}
+
+void allocateSystem(linearSystem *s) {
+    s->A = (float **) malloc(s->n * sizeof (float *));
+    for (int i = 0; i < s->n; i++)
+        s->A[i] = (float *) malloc(s->n * sizeof (float)) ;
+    
+    s->b = (float *) malloc(s->n * sizeof(float));
+    s->x = (float *) malloc(s->n * sizeof(float));
+}
+
+void freeSystem(linearSystem *s) {
+    for(int i = 0; i < s->n; i++)
+        free(s->A[i]);
+    free(s->A);
+    free(s->b);
+    free(s->x);
+}
+
+void swapRows(linearSystem *s, int row1, int row2) {
+    float *temp = s->A[row1];
+    s->A[row1] = s->A[row2];
+    s->A[row2] = temp;
+
+    float temp2 = s->b[row1];
+    s->b[row1] = s->b[row2];
+    s->b[row2] = temp2;
+}
+
+void printSystem(linearSystem *s) {
+    for(int i = 0; i < s->n; i++) {
+        putchar('[');
+        for(int j = 0; j < s->n; j++)
+            printf("%*.2f ", 10, s->A[i][j]);
+        printf("] | [" );
+        printf("%*.2f", 10, s->b[i]);
+        printf("]\n");
     }
 }
 
-void allocateSystem(int n, float **A[], float **b, float **x) {
-    *A = (float **) malloc(n * sizeof(float *));
-    (*A)[0] = (float *) malloc(n * n * sizeof(float));
-    for(int i = 1; i < n; i++)
-        (*A)[i] = (*A)[0] + i * n;
-    
-    *b = (float *) malloc(n * sizeof(float));
-    *x = (float *) malloc(n * sizeof(float));
-}
+void gausianElimination(linearSystem *s) {
+    #ifdef DEBUG
+    printf("Dimension: %d X %d\n\n", s->n, s->n);
+    printSystem(s);
+    printf("\n");
+    #endif
 
-void freeSystem(float *A[], float *b, float *x) {
-    free(A[0]);
-    free(A);
-    free(b);
-    free(x);
-}
-
-void swapRows(float *A[], float *b, int row1, int row2) {
-    float *temp = A[row1];
-    A[row1] = A[row2];
-    A[row2] = temp;
-
-    float temp2 = b[row1];
-    b[row1] = b[row2];
-    b[row2] = temp2;
-}
-
-void gausianElimination(int n, float *A[], float *b, float *x) {
-    
-    for(int k = 0; k < n - 1; k++) {
+    for(int k = 0; k < s->n - 1; k++) {
         // pivoteamento das linhas
         int idx = k;
-        for(int i = k+1; i < n; i++) {
-            if(fabs(A[i][k]) > fabs(A[k][k])) {
+        for(int i = k+1; i < s->n; i++) {
+            if(fabs(s->A[i][k]) > fabs(s->A[idx][k])) {
                 idx = i;
             }
         }
-        printf("Trocar linha %d por linha %d\n", k+1, idx + 1);
-        swapRows(A, b, k, idx);
-        printFloatMat(A, n, n);
+
+        swapRows(s, k, idx);
+
+        #ifdef DEBUG
+        printf("Swap line %d with line %d:\n\n", k+1, idx + 1);
+        printSystem(s);
         printf("\n");
-        printFloatMat(&b, 1, n);
-        printf("\n");
+        #endif
 
         // zerar elementos abaixo da diagonal principal
-        for(int i = k + 1; i < n; i++) {
+        for(int i = k + 1; i < s->n; i++) {
             // Calcular o multiplicador m
-            float m = A[i][k] / A[k][k];
-            printf("m = %.1f\n", m);
+            float m = s->A[i][k] / s->A[k][k];
+
+            #ifdef DEBUG
+            printf("m[%d][%d] = %.2f / %.2f = %.2f\n", i+1, k+1, s->A[i][k], s->A[k][k], m);
+            printf("L%d = L%d - (%.2f * L%d):\n\n", i+1, i+1, m, k+1);
+            #endif
 
             // aplicar o multiplicador m na linha i
-            for(int j = k; j < n; j++) {
-                A[i][j] -= m * A[k][j];
+            for(int j = k; j < s->n; j++) {
+                s->A[i][j] -= m * s->A[k][j];
             }
 
             // Calcular b
-            b[i] -= m * b[k];
+            s->b[i] -= m * s->b[k];
+
+            #ifdef DEBUG
+            printSystem(s);
+            printf("\n");
+            #endif
         }
     }
-
+    
     // substituição regressiva
-    for(int i = n - 1; i >= 0; i--) {
+    for(int i = s->n - 1; i >= 0; i--) {
         float sum = 0;
-        for(int j = i + 1; j < n; j++) {
-            sum += A[i][j] * x[j];
+        for(int j = i + 1; j < s->n; j++) {
+            sum += s->A[i][j] * s->x[j];
         }
-        x[i] = (b[i] - sum) / A[i][i];
+        s->x[i] = (s->b[i] - sum) / s->A[i][i];
     }
-
-    printf("\n");
-    printFloatMat(A, n, n);
-    printf("\n");
-    printFloatMat(&b, 1, n);
-
-    printf("\n");
-    for(int i = 0; i < n; i++)
-        printf("x[%d] = %.1f\n", i+1, x[i]);
 }
