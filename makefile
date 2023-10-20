@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 TARGET = gausianElimination
-SRC = main.c
+SRC = src/main.c
 DEBUG_TARGET = $(TARGET)_debug
 
 release: $(SRC)
